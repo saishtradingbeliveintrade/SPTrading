@@ -8,87 +8,77 @@ HEADERS = {
     "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"
 }
 
+# ---------------- LTP ----------------
+def get_ltp(symbol):
+    key = INSTRUMENT_MAP.get(symbol.upper())
+    url = f"https://api.upstox.com/v3/market-quote/ltp?instrument_key={key}"
+    res = requests.get(url, headers=HEADERS).json()
+    return list(res["data"].values())[0]["last_price"]
 
-def fetch_intraday_candles(key):
-    url = f"https://api.upstox.com/v3/historical-candle/intraday/{key}/5minute"
-    res = requests.get(url, headers=HEADERS)
-    data = res.json()
+
+# ---------------- CANDLES (CORRECT API) ----------------
+def fetch_intraday_candles(symbol):
+    url = f"https://api.upstox.com/v3/historical-candle/intraday/NSE_EQ/{symbol}/minutes/5"
+    res = requests.get(url, headers=HEADERS).json()
 
     try:
-        return data["data"]["candles"]
+        return res["data"]["candles"]
     except:
         return []
 
 
-def calculate_vwap(candles):
-    total_vol_price = 0
-    total_vol = 0
+# ---------------- SCORING LOGIC ----------------
+def score_stock(symbol):
+    candles = fetch_intraday_candles(symbol)
 
-    for c in candles:
-        high, low, close, vol = c[2], c[3], c[4], c[5]
-        avg_price = (high + low + close) / 3
-        total_vol_price += avg_price * vol
-        total_vol += vol
-
-    return total_vol_price / total_vol if total_vol else 0
-
-
-def score_stock(symbol, key):
-    candles = fetch_intraday_candles(key)
     if len(candles) < 20:
         return None
 
-    latest = candles[-1]
-    prev = candles[-2]
+    closes = [c[4] for c in candles]
+    volumes = [c[5] for c in candles]
 
-    ltp = latest[4]
-    prev_close = prev[4]
+    last_price = closes[-1]
+    prev_price = closes[-10]
 
-    percent = ((ltp - prev_close) / prev_close) * 100
+    price_move = ((last_price - prev_price) / prev_price) * 100
 
-    # --- VWAP ---
-    vwap = calculate_vwap(candles[-20:])
-    vwap_score = 20 if ltp > vwap else 0
+    avg_vol = sum(volumes[:-1]) / len(volumes[:-1])
+    vol_spike = volumes[-1] > 2 * avg_vol
 
-    # --- Volume Spike ---
-    avg_vol = sum([c[5] for c in candles[-10:-1]]) / 9
-    vol_score = 20 if latest[5] > avg_vol * 1.8 else 0
+    score = 0
 
-    # --- Strong Candle ---
-    body = abs(latest[4] - latest[1])
-    range_candle = latest[2] - latest[3]
-    candle_score = 20 if body > (range_candle * 0.6) else 0
+    if price_move > 0.8:
+        score += 40
+    if vol_spike:
+        score += 40
 
-    # --- High Break ---
-    day_high = max([c[2] for c in candles[:-1]])
-    high_score = 20 if ltp > day_high else 0
+    if score < 40:
+        return None
 
-    # --- Momentum ---
-    momentum_score = 20 if percent > 0.4 else 0
-
-    total_score = vwap_score + vol_score + candle_score + high_score + momentum_score
-
-    signal_percent = (total_score / 100) * 100
+    signal_pct = round(price_move, 2)
+    signal_time = datetime.now().strftime("%H:%M")
 
     return {
         "symbol": symbol,
-        "ltp": round(ltp, 2),
-        "percent": round(percent, 2),
-        "signal": round(signal_percent, 2),
-        "time": datetime.now().strftime("%H:%M")
+        "ltp": round(last_price, 2),
+        "percent": round(price_move, 2),
+        "signal": signal_pct,
+        "time": signal_time,
+        "score": score
     }
 
 
+# ---------------- MAIN SCANNER ----------------
 def scan_all_stocks():
     results = []
 
-    for symbol, key in INSTRUMENT_MAP.items():
-        data = score_stock(symbol, key)
+    for symbol in INSTRUMENT_MAP.keys():
+        data = score_stock(symbol)
         if data:
             results.append(data)
 
-    # sort by signal strength
-    results.sort(key=lambda x: x["signal"], reverse=True)
+    # sort by score
+    results = sorted(results, key=lambda x: x["score"], reverse=True)
 
     breakout = results[:10]
     intraday = results[10:20]
