@@ -36,7 +36,7 @@ def get_ltp(symbol: str):
     if not key:
         return {"error": "Invalid symbol"}
 
-    url = f"https://api.upstox.com/v3/market-quote/ltp?instrument_key={key}"
+    url = f"https://api.upstox.com/v3/market-quote/quotes?instrument_key={key}"
     res = requests.get(url, headers=HEADERS)
     return res.json()
 
@@ -46,9 +46,8 @@ def process_stock(sym, data):
     try:
         item = list(data["data"].values())[0]
 
-        ltp = item["last_price"]
-        prev_close = item.get("prev_close", ltp)
-
+ltp = item["last_price"]
+prev_close = item["ohlc"]["close"]
         pct = percent_change(ltp, prev_close)
 
         # 🔥 temporary signal score logic (next step मध्ये real indicators)
