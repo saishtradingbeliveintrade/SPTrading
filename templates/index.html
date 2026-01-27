@@ -1,22 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SP Trading Live Stocks</title>
+    <title>SP Trading Live Market</title>
+    <meta http-equiv="refresh" content="5">
+    <style>
+        body { background:#111; color:#fff; font-family:Arial; text-align:center; }
+        table { margin:auto; border-collapse: collapse; width:60%; }
+        th, td { padding:12px; border-bottom:1px solid #444; }
+        th { background:#222; }
+    </style>
 </head>
 <body>
-    <h1>SP Trading Live Market</h1>
-    <div id="stocks"></div>
+    <h1>📈 SP Trading Live Market</h1>
 
-    <script>
-        async function loadStocks(){
-            let res = await fetch('/api/stocks');
-            let data = await res.json();
-            document.getElementById('stocks').innerHTML =
-                data.map(s => `<p>${s.name} : ₹ ${s.price}</p>`).join('');
-        }
+    <table>
+        <tr>
+            <th>Stock</th>
+            <th>Price (₹)</th>
+        </tr>
+        {% for s in stocks %}
+        <tr>
+            <td>{{ s.symbol }}</td>
+            <td>{{ s.price }}</td>
+        </tr>
+        {% endfor %}
+    </table>
 
-        setInterval(loadStocks, 3000);
-        loadStocks();
-    </script>
 </body>
 </html>
