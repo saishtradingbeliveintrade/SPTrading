@@ -8,17 +8,9 @@ HEADERS = {
     "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"
 }
 
-# ---------------- LTP ----------------
-def get_ltp(symbol):
-    key = INSTRUMENT_MAP.get(symbol.upper())
-    url = f"https://api.upstox.com/v3/market-quote/ltp?instrument_key={key}"
-    res = requests.get(url, headers=HEADERS).json()
-    return list(res["data"].values())[0]["last_price"]
 
-
-# ---------------- CANDLES (CORRECT API) ----------------
-def fetch_intraday_candles(symbol):
-    url = f"https://api.upstox.com/v3/historical-candle/intraday/NSE_EQ/{symbol}/minutes/5"
+def fetch_intraday_candles(instrument_key):
+    url = f"https://api.upstox.com/v3/historical-candle/intraday/{instrument_key}/minutes/5"
     res = requests.get(url, headers=HEADERS).json()
 
     try:
@@ -27,9 +19,8 @@ def fetch_intraday_candles(symbol):
         return []
 
 
-# ---------------- SCORING LOGIC ----------------
-def score_stock(symbol):
-    candles = fetch_intraday_candles(symbol)
+def score_stock(symbol, instrument_key):
+    candles = fetch_intraday_candles(instrument_key)
 
     if len(candles) < 20:
         return None
@@ -46,41 +37,32 @@ def score_stock(symbol):
     vol_spike = volumes[-1] > 2 * avg_vol
 
     score = 0
-
     if price_move > 0.8:
-        score += 40
+        score += 50
     if vol_spike:
-        score += 40
+        score += 50
 
-    if score < 40:
+    if score < 50:
         return None
-
-    signal_pct = round(price_move, 2)
-    signal_time = datetime.now().strftime("%H:%M")
 
     return {
         "symbol": symbol,
         "ltp": round(last_price, 2),
         "percent": round(price_move, 2),
-        "signal": signal_pct,
-        "time": signal_time,
+        "signal": round(price_move, 2),
+        "time": datetime.now().strftime("%H:%M"),
         "score": score
     }
 
 
-# ---------------- MAIN SCANNER ----------------
 def scan_all_stocks():
     results = []
 
-    for symbol in INSTRUMENT_MAP.keys():
-        data = score_stock(symbol)
+    for symbol, key in INSTRUMENT_MAP.items():
+        data = score_stock(symbol, key)
         if data:
             results.append(data)
 
-    # sort by score
     results = sorted(results, key=lambda x: x["score"], reverse=True)
 
-    breakout = results[:10]
-    intraday = results[10:20]
-
-    return breakout, intraday
+    return results[:10], results[10:20]
