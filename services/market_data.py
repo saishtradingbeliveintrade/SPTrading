@@ -1,6 +1,6 @@
 import requests
 from config import UPSTOX_ACCESS_TOKEN
-from instrument_map import INSTRUMENT_MAP   # <- हा file वेगळा ठेव
+from services.instrument_map import INSTRUMENT_MAP
 
 HEADERS = {
     "Accept": "application/json",
