@@ -2,118 +2,66 @@
 <html>
 <head>
     <title>SP Trading Dashboard</title>
-    <meta http-equiv="refresh" content="5">
+    <meta http-equiv="refresh" content="6">
     <style>
         body{
             margin:0;
-            font-family: Arial, Helvetica, sans-serif;
+            font-family: Arial;
             background:#0d0d0d;
             color:white;
         }
 
-        h2{
-            margin:0;
-            padding:12px;
+        h1{
             background:white;
             color:black;
+            padding:12px;
             text-align:center;
+            margin:0;
             font-size:18px;
         }
 
-        .container{
-            display:flex;
-            justify-content:space-around;
-            padding:20px;
-            gap:20px;
-        }
-
-        .panel{
-            width:48%;
-            background:#111;
-            border-radius:6px;
-            box-shadow:0 0 10px #000;
+        .section{
+            padding:10px;
         }
 
         .stock-box{
             border:1px solid #333;
-            margin:10px;
             padding:10px;
-            border-radius:5px;
+            margin-bottom:8px;
+            border-radius:6px;
             background:#1a1a1a;
             display:flex;
             justify-content:space-between;
             align-items:center;
-            font-size:14px;
         }
 
-        .symbol{
-            font-weight:bold;
-            font-size:15px;
-        }
-
-        .ltp{
-            color:#00ff99;
-        }
-
-        .signal{
-            color:orange;
-            font-weight:bold;
-        }
-
-        .time{
-            font-size:12px;
-            color:#aaa;
-        }
-
+        .symbol{font-weight:bold;}
+        .ltp{color:#00ff99;}
+        .signal{color:orange;}
     </style>
 </head>
 <body>
 
-<div class="container">
-
-    <h2>BREAKOUT STOCK</h2>
-
-<div class="stock-box" style="background:white;color:black;font-weight:bold;">
-    <div style="width:30%">SYMBOL</div>
-    <div style="width:20%">LTP</div>
-    <div style="width:15%">%</div>
-    <div style="width:20%">SIGNAL</div>
-    <div style="width:15%">TIME</div>
-</div>
-
-{% for s in stocks[:25] %}
-<div class="stock-box">
-    <div style="width:30%" class="symbol">{{ s.symbol }}</div>
-    <div style="width:20%" class="ltp">₹ {{ s.price }}</div>
-    <div style="width:15%">--</div>
-    <div style="width:20%" class="signal">SIGNAL</div>
-    <div style="width:15%" class="time">5m</div>
-</div>
-{% endfor %}
-
+<h1>BREAKOUT STOCK</h1>
+<div class="section">
+    {% for s in breakout %}
+    <div class="stock-box">
+        <div class="symbol">{{ s.symbol }}</div>
+        <div class="ltp">₹ {{ s.price }}</div>
+        <div class="signal">SIGNAL</div>
     </div>
-
-
-    <h2>INTRADAY BOOST</h2>
-
-<div class="stock-box" style="background:white;color:black;font-weight:bold;">
-    <div style="width:35%">SYMBOL</div>
-    <div style="width:25%">LTP</div>
-    <div style="width:20%">%</div>
-    <div style="width:20%">SIGNAL</div>
+    {% endfor %}
 </div>
 
-{% for s in stocks[25:50] %}
-<div class="stock-box">
-    <div style="width:35%" class="symbol">{{ s.symbol }}</div>
-    <div style="width:25%" class="ltp">₹ {{ s.price }}</div>
-    <div style="width:20%">--</div>
-    <div style="width:20%" class="signal">SIGNAL</div>
-</div>
-{% endfor %}
-
+<h1>INTRADAY BOOST</h1>
+<div class="section">
+    {% for s in intraday %}
+    <div class="stock-box">
+        <div class="symbol">{{ s.symbol }}</div>
+        <div class="ltp">₹ {{ s.price }}</div>
+        <div class="signal">SIGNAL</div>
     </div>
-
+    {% endfor %}
 </div>
 
 </body>
