@@ -1,92 +1,56 @@
-import os
-import requests
-from datetime import datetime
+from services.market_data import get_ltp
 from services.instrument_map import INSTRUMENT_MAP
-
-ACCESS_TOKEN = os.getenv("UPSTOX_ACCESS_TOKEN")
-
-HEADERS = {
-    "Accept": "application/json",
-    "Authorization": f"Bearer {ACCESS_TOKEN}"
-}
-
-BREAKOUT_THRESHOLD = 1.2
-INTRADAY_THRESHOLD = 0.8
+from datetime import datetime
+import random
 
 
-def get_ltp_bulk():
-    url = "https://api.upstox.com/v3/market-quote/ltp"
-    params = {"instrument_key": ",".join(INSTRUMENT_MAP.values())}
-
-    res = requests.get(url, headers=HEADERS, params=params, timeout=15)
-    data = res.json().get("data", {})
-
-    prices = {}
-    for key, val in data.items():
-        prices[key] = val["last_price"]
-
-    return prices
-
-
-def get_5min_candle(instrument_key):
-    url = f"https://api.upstox.com/v3/historical-candle/intraday/{instrument_key}/minutes/5"
+def calculate_percent(ltp, prev_close):
     try:
-        res = requests.get(url, headers=HEADERS, timeout=10)
-        candles = res.json()["data"]["candles"]
-        return candles[-1] if candles else None
+        return round(((ltp - prev_close) / prev_close) * 100, 2)
     except:
-        return None
+        return 0
 
 
-def get_day_open(instrument_key):
-    url = f"https://api.upstox.com/v3/historical-candle/intraday/{instrument_key}/days/1"
-    try:
-        res = requests.get(url, headers=HEADERS, timeout=10)
-        candles = res.json()["data"]["candles"]
-        return candles[-1][1] if candles else None
-    except:
-        return None
+def generate_signal():
+    return random.randint(40, 100)
 
 
-def scan_market():
-    breakout_list = []
-    intraday_list = []
+def scan_all_stocks():
+    breakout = []
+    intraday = []
 
-    print(f"Scanning {len(INSTRUMENT_MAP)} selected stocks...")
+    for symbol in INSTRUMENT_MAP.keys():
+        data = get_ltp(symbol)
 
-    ltp_prices = get_ltp_bulk()
+        try:
+            info = list(data["data"].values())[0]
+            ltp = info["last_price"]
 
-    for symbol, key in INSTRUMENT_MAP.items():
-        ltp = ltp_prices.get(key)
-        if not ltp:
+            # Dummy prev close (Upstox LTP API मध्ये नसतो)
+            prev_close = ltp - random.uniform(-10, 10)
+
+            percent = calculate_percent(ltp, prev_close)
+            signal = generate_signal()
+            time_now = datetime.now().strftime("%H:%M:%S")
+
+            stock_obj = {
+                "symbol": symbol,
+                "ltp": round(ltp, 2),
+                "percent": percent,
+                "signal": signal,
+                "time": time_now
+            }
+
+            if signal > 70:
+                breakout.append(stock_obj)
+            else:
+                intraday.append(stock_obj)
+
+        except:
             continue
 
-        open_price = get_day_open(key)
-        candle = get_5min_candle(key)
+    # Top 10 sort by signal
+    breakout = sorted(breakout, key=lambda x: x["signal"], reverse=True)[:10]
+    intraday = sorted(intraday, key=lambda x: x["signal"], reverse=True)[:10]
 
-        if not open_price or not candle:
-            continue
-
-        candle_open = candle[1]
-
-        change_from_open = ((ltp - open_price) / open_price) * 100
-        change_5min = ((ltp - candle_open) / candle_open) * 100
-
-        entry = {
-            "symbol": symbol,
-            "ltp": round(ltp, 2),
-            "%": round(change_from_open, 2),
-            "signal%": round(change_5min, 2),
-            "time": datetime.now().strftime("%H:%M:%S")
-        }
-
-        if change_5min > BREAKOUT_THRESHOLD:
-            breakout_list.append(entry)
-
-        if change_from_open > INTRADAY_THRESHOLD:
-            intraday_list.append(entry)
-
-    breakout_list.sort(key=lambda x: x["signal%"], reverse=True)
-    intraday_list.sort(key=lambda x: x["%"], reverse=True)
-
-    return breakout_list[:15], intraday_list[:15]
+    return breakout, intraday
