@@ -8,86 +8,91 @@ HEADERS = {
     "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"
 }
 
-# 👉 signal time freeze store
-signal_times = {}
+# time store (breakout trigger time freeze)
+TRIGGER_TIME = {}
 
 
-# ---------- BASIC CALC ----------
-def percent_change(ltp, prev_close):
-    try:
-        return round(((ltp - prev_close) / prev_close) * 100, 2)
-    except:
-        return 0
-
-
-def get_signal_time(symbol):
-    return signal_times.get(symbol)
-
-
-def set_signal_time(symbol):
-    if symbol not in signal_times:
-        signal_times[symbol] = datetime.now().strftime("%H:%M")
-
-
-# ---------- LTP API ----------
 def get_ltp(symbol: str):
     key = INSTRUMENT_MAP.get(symbol.upper())
 
     if not key:
         return {"error": "Invalid symbol"}
 
+    # ✅ QUOTES API (gives prev close)
     url = f"https://api.upstox.com/v3/market-quote/quotes?instrument_key={key}"
     res = requests.get(url, headers=HEADERS)
     return res.json()
 
 
-# ---------- PROCESS STOCK (logic layer) ----------
-def process_stock(sym, data):
+def process_stock(symbol: str):
+    data = get_ltp(symbol)
+
     try:
         item = list(data["data"].values())[0]
 
-ltp = item["last_price"]
-prev_close = item["ohlc"]["close"]
-        pct = percent_change(ltp, prev_close)
+        ltp = item["last_price"]
+        prev_close = item["ohlc"]["close"]
+        volume = item.get("volume", 0)
 
-        # 🔥 temporary signal score logic (next step मध्ये real indicators)
-        signal_pct = abs(pct) * 5
-        signal_pct = min(round(signal_pct, 2), 100)
+        # ✅ % Change
+        pct = round(((ltp - prev_close) / prev_close) * 100, 2)
 
-        # signal trigger condition
-        if signal_pct > 20:
-            set_signal_time(sym)
+        # ---------------- SIGNAL LOGIC ----------------
+        signal_score = 0
 
-        time = get_signal_time(sym)
+        # Volume spike basic
+        if volume > 500000:
+            signal_score += 20
+
+        # Price above prev close
+        if ltp > prev_close:
+            signal_score += 20
+
+        # Strong move
+        if pct > 1:
+            signal_score += 20
+
+        # Big move
+        if pct > 2:
+            signal_score += 20
+
+        # Extra momentum
+        if pct > 3:
+            signal_score += 20
+
+        signal_pct = min(signal_score, 100)
+
+        # -------- Trigger Time Freeze --------
+        if signal_pct >= 60 and symbol not in TRIGGER_TIME:
+            TRIGGER_TIME[symbol] = datetime.now().strftime("%H:%M")
+
+        trigger_time = TRIGGER_TIME.get(symbol, "-")
 
         return {
-            "symbol": sym,
+            "symbol": symbol,
             "price": ltp,
             "pct": pct,
             "signal_pct": signal_pct,
-            "time": time
+            "time": trigger_time
         }
 
-    except:
+    except Exception as e:
         return {
-            "symbol": sym,
-            "price": "Error",
+            "symbol": symbol,
+            "price": 0,
             "pct": 0,
             "signal_pct": 0,
-            "time": None
+            "time": "-"
         }
 
 
-# ---------- MULTIPLE LTP WITH LOGIC ----------
-def get_multiple_ltp(symbols: list):
-    processed = []
+def get_multiple_processed(symbols: list):
+    results = []
 
     for sym in symbols:
-        raw = get_ltp(sym)
-        stock = process_stock(sym, raw)
-        processed.append(stock)
+        results.append(process_stock(sym))
 
-    # 🔥 sorting by signal strength
-    processed.sort(key=lambda x: x["signal_pct"], reverse=True)
+    # sort by signal strength
+    results = sorted(results, key=lambda x: x["signal_pct"], reverse=True)
 
-    return processed
+    return results[:10]
