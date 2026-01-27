@@ -87,3 +87,23 @@ def get_ltp(symbol: str):
 
     data = fetch_quote(key)
     return data
+import requests
+import os
+
+TOKEN = os.getenv("UPSTOX_ACCESS_TOKEN")
+
+def get_prev_day_data(instrument_key):
+    url = f"https://api.upstox.com/v3/historical-candle/{instrument_key}/days/1"
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+
+    r = requests.get(url, headers=headers).json()
+
+    try:
+        candle = r["data"]["candles"][0]
+        return {
+            "high": candle[2],
+            "close": candle[4],
+            "volume": candle[5],
+        }
+    except:
+        return None
