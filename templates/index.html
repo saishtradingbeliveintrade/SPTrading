@@ -1,100 +1,140 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SPTraders</title>
-    <meta http-equiv="refresh" content="6">
+    <title>SPTraders Live</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
     <style>
-    body{
-        margin:0;
-        font-family: Arial, Helvetica, sans-serif;
-        background:#0d0d0d;
-        color:white;
-    }
+        body{
+            margin:0;
+            background:#0b0b0b;
+            font-family: Arial, Helvetica, sans-serif;
+            color:white;
+        }
 
-    /* BIG BRAND */
-    .brand{
-        text-align:center;
-        font-size:44px;          /* मोठं केलं */
-        font-weight:900;
-        padding:20px 0;
-        background:linear-gradient(90deg,#00ffcc,#00ccff,#33ff66);
-        color:black;
-        letter-spacing:3px;
-    }
+        .title{
+            text-align:center;
+            font-size:40px;
+            font-weight:bold;
+            padding:18px;
+            background:linear-gradient(90deg,#00f5a0,#00d9f5);
+            color:black;
+        }
 
-    /* Section Box Title */
-    .section-title{
-        text-align:center;
-        font-weight:bold;
-        padding:12px;
-        font-size:22px;          /* मोठं केलं */
-        margin:15px 10px 0 10px;
-        background:#d2b48c;      /* light brown */
-        color:black;
-        border-radius:6px;
-    }
+        .section{
+            margin:15px;
+        }
 
-    /* Column Header Bar */
-    .column-bar{
-        display:flex;
-        justify-content:space-between;
-        background:#1f1f1f;
-        padding:10px 12px;
-        font-weight:bold;
-        border-top:1px solid #333;
-        border-bottom:1px solid #333;
-        color:#ccc;
-        margin:0 10px;
-    }
+        .section-title{
+            background:#c8a96a;
+            color:black;
+            text-align:center;
+            font-size:22px;
+            font-weight:bold;
+            padding:10px;
+            border-radius:6px;
+            margin-bottom:6px;
+        }
 
-    .stock-box{
-        display:flex;
-        justify-content:space-between;
-        padding:10px 12px;
-        border-bottom:1px solid #222;
-        margin:0 10px;
-    }
+        .column-bar{
+            display:grid;
+            grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr;
+            background:#1e1e1e;
+            padding:8px;
+            font-weight:bold;
+            font-size:14px;
+            border-radius:4px;
+            margin-bottom:4px;
+        }
 
-    .symbol{font-weight:bold;font-size:15px;}
-    .ltp{color:#00ff99;font-size:15px;}
-    .signal{color:orange;font-size:15px;}
-</style>
+        .stock-box{
+            display:grid;
+            grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr;
+            background:#111;
+            padding:10px 8px;
+            border-bottom:1px solid #222;
+            font-size:14px;
+        }
+
+        .symbol{
+            font-weight:bold;
+        }
+
+        .ltp{
+            color:#00ff99;
+        }
+    </style>
 </head>
 <body>
 
-<div class="brand">SPTraders</div>
+<div class="title">SPTraders</div>
 
-<!-- BREAKOUT -->
-<div class="section-title">BREAKOUT STOCK</div>
-<div class="column-bar">
-    <div>SYMBOL</div>
-    <div>LTP</div>
-    <div>SIGNAL</div>
+<!-- BREAKOUT STOCK -->
+<div class="section">
+    <div class="section-title">BREAKOUT STOCK</div>
+
+    <div class="column-bar">
+        <div>SYMBOL</div>
+        <div>LTP</div>
+        <div>%</div>
+        <div>SIGNAL%</div>
+        <div>TIME</div>
+    </div>
+
+    {% for s in breakout %}
+    <div class="stock-box">
+        <div class="symbol">{{ s.symbol }}</div>
+
+        <div class="ltp">₹ {{ s.price }}</div>
+
+        <div style="color:{% if s.pct >= 0 %}#00ff99{% else %}red{% endif %}">
+            {{ s.pct }}%
+        </div>
+
+        <div style="color:{% if s.signal_pct >= 50 %}#00ff99{% else %}orange{% endif %}">
+            {{ s.signal_pct }}%
+        </div>
+
+        <div>
+            {{ s.time if s.time else '-' }}
+        </div>
+    </div>
+    {% endfor %}
 </div>
 
-{% for s in breakout %}
-<div class="stock-box">
-    <div class="symbol">{{ s.symbol }}</div>
-    <div class="ltp">₹ {{ s.price }}</div>
-    <div class="signal">SIGNAL</div>
-</div>
-{% endfor %}
 
-<!-- INTRADAY -->
-<div class="section-title">INTRADAY BOOST</div>
-<div class="column-bar">
-    <div>SYMBOL</div>
-    <div>LTP</div>
-    <div>SIGNAL</div>
-</div>
+<!-- INTRADAY BOOST -->
+<div class="section">
+    <div class="section-title">INTRADAY BOOST</div>
 
-{% for s in intraday %}
-<div class="stock-box">
-    <div class="symbol">{{ s.symbol }}</div>
-    <div class="ltp">₹ {{ s.price }}</div>
-    <div class="signal">SIGNAL</div>
+    <div class="column-bar">
+        <div>SYMBOL</div>
+        <div>LTP</div>
+        <div>%</div>
+        <div>SIGNAL%</div>
+        <div>TIME</div>
+    </div>
+
+    {% for s in intraday %}
+    <div class="stock-box">
+        <div class="symbol">{{ s.symbol }}</div>
+
+        <div class="ltp">₹ {{ s.price }}</div>
+
+        <div style="color:{% if s.pct >= 0 %}#00ff99{% else %}red{% endif %}">
+            {{ s.pct }}%
+        </div>
+
+        <div style="color:{% if s.signal_pct >= 50 %}#00ff99{% else %}orange{% endif %}">
+            {{ s.signal_pct }}%
+        </div>
+
+        <div>
+            {{ s.time if s.time else '-' }}
+        </div>
+    </div>
+    {% endfor %}
 </div>
-{% endfor %}
 
 </body>
 </html>
