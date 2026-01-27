@@ -1,68 +1,103 @@
+import os
 import requests
 from datetime import datetime
-from config import UPSTOX_ACCESS_TOKEN
-from services.instrument_map import INSTRUMENT_MAP
+from instrument_loader import INSTRUMENT_MAP
+
+ACCESS_TOKEN = os.getenv("UPSTOX_ACCESS_TOKEN")
 
 HEADERS = {
     "Accept": "application/json",
-    "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"
+    "Authorization": f"Bearer {ACCESS_TOKEN}"
 }
 
+# ----------- SETTINGS -------------
+BREAKOUT_THRESHOLD = 1.2      # %
+INTRADAY_THRESHOLD = 0.8      # %
+# ----------------------------------
 
-def fetch_intraday_candles(instrument_key):
+
+def get_ltp_bulk():
+    keys = list(INSTRUMENT_MAP.values())
+    chunk_size = 50
+    prices = {}
+
+    for i in range(0, len(keys), chunk_size):
+        chunk = keys[i:i + chunk_size]
+        url = "https://api.upstox.com/v3/market-quote/ltp"
+        params = {"instrument_key": ",".join(chunk)}
+
+        try:
+            res = requests.get(url, headers=HEADERS, params=params, timeout=10)
+            data = res.json().get("data", {})
+
+            for key, val in data.items():
+                prices[key] = val["last_price"]
+
+        except Exception as e:
+            print("LTP error:", e)
+
+    return prices
+
+
+def get_5min_candle(instrument_key):
     url = f"https://api.upstox.com/v3/historical-candle/intraday/{instrument_key}/minutes/5"
-    res = requests.get(url, headers=HEADERS).json()
-
     try:
-        return res["data"]["candles"]
+        res = requests.get(url, headers=HEADERS, timeout=10)
+        candles = res.json()["data"]["candles"]
+        return candles[-1] if candles else None
     except:
-        return []
-
-
-def score_stock(symbol, instrument_key):
-    candles = fetch_intraday_candles(instrument_key)
-
-    if len(candles) < 20:
         return None
 
-    closes = [c[4] for c in candles]
-    volumes = [c[5] for c in candles]
 
-    last_price = closes[-1]
-    prev_price = closes[-10]
-
-    price_move = ((last_price - prev_price) / prev_price) * 100
-
-    avg_vol = sum(volumes[:-1]) / len(volumes[:-1])
-    vol_spike = volumes[-1] > 2 * avg_vol
-
-    score = 0
-    if price_move > 0.8:
-        score += 50
-    if vol_spike:
-        score += 50
-
-    if score < 50:
+def get_day_open(instrument_key):
+    url = f"https://api.upstox.com/v3/historical-candle/intraday/{instrument_key}/days/1"
+    try:
+        res = requests.get(url, headers=HEADERS, timeout=10)
+        candles = res.json()["data"]["candles"]
+        return candles[-1][1] if candles else None
+    except:
         return None
 
-    return {
-        "symbol": symbol,
-        "ltp": round(last_price, 2),
-        "percent": round(price_move, 2),
-        "signal": round(price_move, 2),
-        "time": datetime.now().strftime("%H:%M"),
-        "score": score
-    }
 
+def scan_market():
+    breakout_list = []
+    intraday_list = []
 
-def scan_all_stocks():
-    results = []
+    print(f"Scanning {len(INSTRUMENT_MAP)} stocks...")
+
+    ltp_prices = get_ltp_bulk()
 
     for symbol, key in INSTRUMENT_MAP.items():
-        data = score_stock(symbol, key)
-        if data:
-            results.append(data)
+        ltp = ltp_prices.get(key)
+        if not ltp:
+            continue
 
-    results = sorted(results, key=lambda x: x["score"], reverse=True)
+        open_price = get_day_open(key)
+        candle = get_5min_candle(key)
 
-    return results[:10], results[10:20]
+        if not open_price or not candle:
+            continue
+
+        candle_open = candle[1]
+
+        change_from_open = ((ltp - open_price) / open_price) * 100
+        change_5min = ((ltp - candle_open) / candle_open) * 100
+
+        entry = {
+            "symbol": symbol,
+            "ltp": round(ltp, 2),
+            "%": round(change_from_open, 2),
+            "signal%": round(change_5min, 2),
+            "time": datetime.now().strftime("%H:%M:%S")
+        }
+
+        if change_5min > BREAKOUT_THRESHOLD:
+            breakout_list.append(entry)
+
+        if change_from_open > INTRADAY_THRESHOLD:
+            intraday_list.append(entry)
+
+    breakout_list.sort(key=lambda x: x["signal%"], reverse=True)
+    intraday_list.sort(key=lambda x: x["%"], reverse=True)
+
+    return breakout_list[:15], intraday_list[:15]
