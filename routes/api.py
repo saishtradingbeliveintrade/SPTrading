@@ -1,8 +1,8 @@
 from fastapi import APIRouter
-from services.market_data import get_live_data
+from services.market_data import get_ltp
 
 router = APIRouter(prefix="/api")
 
-@router.get("/stocks")
-def stocks():
-    return get_live_data()
+@router.get("/ltp/{symbol}")
+def ltp(symbol: str):
+    return get_ltp(symbol)
