@@ -71,42 +71,46 @@
 
 <div class="container">
 
-    <!-- BREAKOUT STOCK -->
-    <div class="panel">
-        <h2>BREAKOUT STOCK</h2>
+    <h2>BREAKOUT STOCK</h2>
 
-        {% for s in stocks[:25] %}
-        <div class="stock-box">
-            <div>
-                <div class="symbol">{{ s.symbol }}</div>
-                <div class="time">Chart Time: 5m</div>
-            </div>
+<div class="stock-box" style="background:white;color:black;font-weight:bold;">
+    <div style="width:30%">SYMBOL</div>
+    <div style="width:20%">LTP</div>
+    <div style="width:15%">%</div>
+    <div style="width:20%">SIGNAL</div>
+    <div style="width:15%">TIME</div>
+</div>
 
-            <div class="ltp">₹ {{ s.price }}</div>
-
-            <div class="signal">SIGNAL</div>
-        </div>
-        {% endfor %}
+{% for s in stocks[:25] %}
+<div class="stock-box">
+    <div style="width:30%" class="symbol">{{ s.symbol }}</div>
+    <div style="width:20%" class="ltp">₹ {{ s.price }}</div>
+    <div style="width:15%">--</div>
+    <div style="width:20%" class="signal">SIGNAL</div>
+    <div style="width:15%" class="time">5m</div>
+</div>
+{% endfor %}
 
     </div>
 
 
-    <!-- INTRADAY BOOST -->
-    <div class="panel">
-        <h2>INTRADAY BOOST</h2>
+    <h2>INTRADAY BOOST</h2>
 
-        {% for s in stocks[25:50] %}
-        <div class="stock-box">
-            <div>
-                <div class="symbol">{{ s.symbol }}</div>
-                <div class="time">Chart Time: 5m</div>
-            </div>
+<div class="stock-box" style="background:white;color:black;font-weight:bold;">
+    <div style="width:35%">SYMBOL</div>
+    <div style="width:25%">LTP</div>
+    <div style="width:20%">%</div>
+    <div style="width:20%">SIGNAL</div>
+</div>
 
-            <div class="ltp">₹ {{ s.price }}</div>
-
-            <div class="signal">SIGNAL</div>
-        </div>
-        {% endfor %}
+{% for s in stocks[25:50] %}
+<div class="stock-box">
+    <div style="width:35%" class="symbol">{{ s.symbol }}</div>
+    <div style="width:25%" class="ltp">₹ {{ s.price }}</div>
+    <div style="width:20%">--</div>
+    <div style="width:20%" class="signal">SIGNAL</div>
+</div>
+{% endfor %}
 
     </div>
 
