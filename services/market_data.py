@@ -17,3 +17,16 @@ def get_ltp(symbol: str):
     url = f"https://api.upstox.com/v3/market-quote/ltp?instrument_key={key}"
     res = requests.get(url, headers=HEADERS)
     return res.json()
+
+def get_multiple_ltp(symbols: list):
+    results = []
+
+    for sym in symbols:
+        data = get_ltp(sym)
+        try:
+            price = list(data["data"].values())[0]["last_price"]
+            results.append({"symbol": sym, "price": price})
+        except:
+            results.append({"symbol": sym, "price": "Error"})
+
+    return results
