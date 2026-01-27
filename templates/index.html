@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SP Trading Live Stocks</title>
+</head>
+<body>
+    <h1>SP Trading Live Market</h1>
+    <div id="stocks"></div>
+
+    <script>
+        async function loadStocks(){
+            let res = await fetch('/api/stocks');
+            let data = await res.json();
+            document.getElementById('stocks').innerHTML =
+                data.map(s => `<p>${s.name} : ₹ ${s.price}</p>`).join('');
+        }
+
+        setInterval(loadStocks, 3000);
+        loadStocks();
+    </script>
+</body>
+</html>
