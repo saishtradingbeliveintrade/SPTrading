@@ -65,4 +65,4 @@ def scan_all_stocks():
     breakout = sorted(breakout, key=lambda x: -x["percent"])[:10]
     intraday = sorted(intraday, key=lambda x: -x["percent"])[:10]
 
-    return breakout, intraday 22
+    return breakout, intraday
