@@ -10,60 +10,44 @@ HEADERS = {
     "Authorization": f"Bearer {ACCESS_TOKEN}"
 }
 
-# ----------- SETTINGS -------------
-BREAKOUT_THRESHOLD = 1.2      # %
-INTRADAY_THRESHOLD = 0.8      # %
-# ----------------------------------
+BREAKOUT_THRESHOLD = 1.2
+INTRADAY_THRESHOLD = 0.8
 
 
 def get_ltp_bulk():
     keys = list(INSTRUMENT_MAP.values())
-    chunk_size = 50
+    url = "https://api.upstox.com/v3/market-quote/ltp"
+    params = {"instrument_key": ",".join(keys)}
+
+    res = requests.get(url, headers=HEADERS, params=params, timeout=10)
+    data = res.json().get("data", {})
+
     prices = {}
-
-    for i in range(0, len(keys), chunk_size):
-        chunk = keys[i:i + chunk_size]
-        url = "https://api.upstox.com/v3/market-quote/ltp"
-        params = {"instrument_key": ",".join(chunk)}
-
-        try:
-            res = requests.get(url, headers=HEADERS, params=params, timeout=10)
-            data = res.json().get("data", {})
-
-            for key, val in data.items():
-                prices[key] = val["last_price"]
-
-        except Exception as e:
-            print("LTP error:", e)
+    for key, val in data.items():
+        prices[key] = val["last_price"]
 
     return prices
 
 
 def get_5min_candle(instrument_key):
     url = f"https://api.upstox.com/v3/historical-candle/intraday/{instrument_key}/minutes/5"
-    try:
-        res = requests.get(url, headers=HEADERS, timeout=10)
-        candles = res.json()["data"]["candles"]
-        return candles[-1] if candles else None
-    except:
-        return None
+    res = requests.get(url, headers=HEADERS, timeout=10)
+    candles = res.json()["data"]["candles"]
+    return candles[-1] if candles else None
 
 
 def get_day_open(instrument_key):
     url = f"https://api.upstox.com/v3/historical-candle/intraday/{instrument_key}/days/1"
-    try:
-        res = requests.get(url, headers=HEADERS, timeout=10)
-        candles = res.json()["data"]["candles"]
-        return candles[-1][1] if candles else None
-    except:
-        return None
+    res = requests.get(url, headers=HEADERS, timeout=10)
+    candles = res.json()["data"]["candles"]
+    return candles[-1][1] if candles else None
 
 
 def scan_market():
     breakout_list = []
     intraday_list = []
 
-    print(f"Scanning {len(INSTRUMENT_MAP)} stocks...")
+    print(f"Scanning {len(INSTRUMENT_MAP)} selected stocks...")
 
     ltp_prices = get_ltp_bulk()
 
