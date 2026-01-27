@@ -9,10 +9,17 @@ templates = Jinja2Templates(directory="templates")
 
 @router.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    symbols = list(INSTRUMENT_MAP.keys())[:50]  # आत्ता 50 दाखवू (fast load साठी)
-    stocks = get_multiple_ltp(symbols)
+
+    all_symbols = list(INSTRUMENT_MAP.keys())
+
+    breakout_symbols = all_symbols[:10]
+    intraday_symbols = all_symbols[10:20]
+
+    breakout = get_multiple_ltp(breakout_symbols)
+    intraday = get_multiple_ltp(intraday_symbols)
 
     return templates.TemplateResponse("index.html", {
         "request": request,
-        "stocks": stocks
+        "breakout": breakout,
+        "intraday": intraday
     })
