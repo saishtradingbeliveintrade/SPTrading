@@ -79,3 +79,11 @@ def scan_all_stocks():
     intraday = top20[10:20]
 
     return breakout, intraday
+# --- compatibility function for api route ---
+def get_ltp(symbol: str):
+    key = INSTRUMENT_MAP.get(symbol.upper())
+    if not key:
+        return {"error": "Invalid symbol"}
+
+    data = fetch_quote(key)
+    return data
