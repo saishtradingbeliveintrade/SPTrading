@@ -8,98 +8,105 @@ HEADERS = {
     "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"
 }
 
-QUOTE_URL = "https://api.upstox.com/v3/market-quote/quotes"
+
+# ----------- BULK QUOTES (MAIN FIX) -----------
+def fetch_bulk_quotes(keys: list):
+    url = "https://api.upstox.com/v3/market-quote/quotes"
+    joined = ",".join(keys)
+
+    res = requests.get(
+        url,
+        headers=HEADERS,
+        params={"instrument_key": joined}
+    ).json()
+
+    return res.get("data", {})
 
 
-def get_quotes(keys: list):
-    params = {"instrument_key": ",".join(keys)}
-    r = requests.get(QUOTE_URL, headers=HEADERS, params=params)
-    return r.json().get("data", {})
-
-
-def percent_change(ltp, prev):
-    if prev == 0:
+# ----------- COMMON CALC -----------
+def percent_change(ltp, prev_close):
+    if prev_close == 0:
         return 0
-    return round(((ltp - prev) / prev) * 100, 2)
+    return round(((ltp - prev_close) / prev_close) * 100, 2)
 
 
-# ---------------- BREAKOUT LOGIC (UNCHANGED) ---------------- #
-def breakout_score(pct, volume):
-    score = 0
-    score += abs(pct) * 2
-    score += volume / 100000
-    return score
+def now_time():
+    return datetime.now().strftime("%H:%M")
 
 
-# ---------------- INTRADAY SMART MONEY LOGIC ---------------- #
-def intraday_score(pct, ltp, prev, volume, o, h, low):
-    score = 0
-
-    # Oversold bounce / reversal
-    if pct < -1:
-        score += 10
-
-    # Strong move from low
-    if (ltp - low) / low * 100 > 0.8:
-        score += 15
-
-    # Volume spike
-    if volume > 500000:
-        score += 20
-
-    # Volatility range
-    day_range = (h - low) / low * 100
-    score += day_range
-
-    # Recovery towards prev close
-    recovery = (ltp - low) / (prev - low + 0.01)
-    score += recovery * 10
-
-    return round(score, 2)
-
-
+# ----------- MAIN SCANNER -----------
 def scan_all_stocks():
-    symbols = list(INSTRUMENT_MAP.keys())
-    keys = list(INSTRUMENT_MAP.values())
+    breakout = []
+    intraday = []
 
-    data = get_quotes(keys)
+    all_keys = list(INSTRUMENT_MAP.values())
+    quotes = fetch_bulk_quotes(all_keys)
 
-    breakout_list = []
-    intraday_list = []
-
-    for sym, key in INSTRUMENT_MAP.items():
-        stock = data.get(key)
-        if not stock:
+    for symbol, key in INSTRUMENT_MAP.items():
+        data = quotes.get(key)
+        if not data:
             continue
 
-        ltp = stock["last_price"]
-        prev = stock["prev_close"]
-        volume = stock["volume"]
-        o = stock["open"]
-        h = stock["high"]
-        low = stock["low"]
+        ltp = data["last_price"]
+        prev_close = data["ohlc"]["close"]
+        high = data["ohlc"]["high"]
+        low = data["ohlc"]["low"]
+        volume = data["volume"]
 
-        pct = percent_change(ltp, prev)
+        pct = percent_change(ltp, prev_close)
 
-        # -------- Breakout -------- #
-        b_score = breakout_score(pct, volume)
-        breakout_list.append({
-            "symbol": sym,
-            "ltp": ltp,
-            "percent": pct,
-            "signal": round(b_score, 2)
-        })
+        # ---------------- BREAKOUT LOGIC (today only) ----------------
+        breakout_score = 0
 
-        # -------- Intraday Boost -------- #
-        i_score = intraday_score(pct, ltp, prev, volume, o, h, low)
-        intraday_list.append({
-            "symbol": sym,
-            "ltp": ltp,
-            "percent": pct,
-            "signal": i_score
-        })
+        if ltp > high * 0.995:        # near day high
+            breakout_score += 30
+        if volume > 200000:          # raw spike check
+            breakout_score += 20
+        if pct > 1:
+            breakout_score += 25
+        if ltp > prev_close:
+            breakout_score += 25
 
-    breakout_sorted = sorted(breakout_list, key=lambda x: x["signal"], reverse=True)[:10]
-    intraday_sorted = sorted(intraday_list, key=lambda x: x["signal"], reverse=True)[:10]
+        if breakout_score >= 60:
+            breakout.append({
+                "symbol": symbol,
+                "ltp": ltp,
+                "percent": pct,
+                "signal": breakout_score,
+                "time": now_time()
+            })
 
-    return breakout_sorted, intraday_sorted
+        # ---------------- INTRADAY BOOST (reversal / smart money) ----------------
+        intraday_score = 0
+
+        range_move = ((high - low) / prev_close) * 100
+
+        if pct < 0 and ltp > (low + (high - low) * 0.4):
+            intraday_score += 25      # recovery from low
+
+        if range_move > 2:
+            intraday_score += 20      # volatility
+
+        if volume > 150000:
+            intraday_score += 20      # activity
+
+        if ltp > prev_close * 0.995:
+            intraday_score += 20      # VWAP style reclaim approx
+
+        if pct < -1:
+            intraday_score += 15      # oversold bounce candidate
+
+        if intraday_score >= 55:
+            intraday.append({
+                "symbol": symbol,
+                "ltp": ltp,
+                "percent": pct,
+                "signal": intraday_score,
+                "time": now_time()
+            })
+
+    # -------- SORT TOP 10 --------
+    breakout = sorted(breakout, key=lambda x: x["signal"], reverse=True)[:10]
+    intraday = sorted(intraday, key=lambda x: x["signal"], reverse=True)[:10]
+
+    return breakout, intraday
